@@ -22,8 +22,8 @@ def run_tk(root):
     root.mainloop()
 
 # ---- Asyncio 部分 ----
-async def dummy_task():
-    print("Starting async task...")
+async def dummy_task(context="default"):
+    print(f"Starting async task... {context}")
     for i in range(3):
         print(f"Async task step {i}")
         await asyncio.sleep(1)
@@ -33,8 +33,9 @@ async def run_async():
     uvloop.install()
     await dummy_task()
 
-def tk_after_test(msg):
-    print(f"tk after test: {msg}")
+def tk_after_test(context):
+    asyncio.ensure_future(dummy_task(context))
+    print(f"tk after test: {context}")
     pass
 
 # ---- Main ----
@@ -61,9 +62,14 @@ def main():
     threading.Thread(target=backend_pull_and_trigger, args=(root, loop)).start()
     run_tk(root)
 
+# 后端线程从事件循环中拉取事件，并触发 UI 线程处理
 def backend_pull_and_trigger(tk_root, loop):
+    # loop._get_backend_id()
+    backend_id = loop._get_backend_id()
+    print(f"backend id: {backend_id}")
     #pull event from loop
     #trigger uvloop runonce on tk
+    
     tk_root.after(0, tk_after_test, "from backend thread")
     #loop.run_until_complete(run_async())
     pass

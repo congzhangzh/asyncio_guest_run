@@ -1,10 +1,10 @@
-# Tkinter 与 Asyncio 事件循环集成方案
+# 本项目旨在解决 Python 中 Tkinter GUI 与 Asyncio 事件循环的集成问题。
 
-本项目旨在解决 Python 中 Tkinter GUI 与 Asyncio 事件循环的集成问题。
+[Python 社区讨论](https://discuss.python.org/t/connecting-asyncio-and-tkinter-event-loops/14722/1)
 
-## 项目目标
-
-解决 [Python 社区讨论](https://discuss.python.org/t/connecting-asyncio-and-tkinter-event-loops/14722/1) 中提出的 Tkinter 与 Asyncio 事件循环集成的挑战。
+1. Make asyncio event loop (test with uvloop) work with tkinter gui event loop, the other gui event loop should work as well, like QT/Win32/GTK/etc.
+2. In the future, offical Python asyncio event loop should support peek too？which make pull/test from backend thread and run on main thread possible, which is essential for mix tkinter and asyncio.
+3. the core concept is inspired by electron, run uv loop in backend thread, and wake up main thread to process events.
 
 ## 技术方案
 
@@ -35,6 +35,10 @@
 ## 依赖要求
 
 详见 `requirements.txt`
+
+# 待考虑事项
+1. UI线程&后端线程精确协作机制(信号量)
+2. 主程序安全退出问题
 
 # References
 - https://discuss.python.org/t/connecting-asyncio-and-tkinter-event-loops/14722/1
