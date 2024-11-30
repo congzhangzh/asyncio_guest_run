@@ -1,0 +1,4 @@
+#tkinter
+uvloop
+#asyncio>=3.4.3
+pytest
