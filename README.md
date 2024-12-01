@@ -74,8 +74,9 @@ export CFLAGS="-O0 -g3 -fno-omit-frame-pointer -fno-inline"
 export CYTHON_COMPILER_DIRECTIVES="binding=True,language_level=3,linetrace=True,profile=True,embedsignature=True"
 export CYTHON_TRACE=1
 export CYTHON_TRACE_NOGIL=1
-#python setup.py build_ext --inplace --force --define CYTHON_TRACE=1 --define CYTHON_TRACE_NOGIL=1
-python setup.py build_ext --inplace --force --define CYTHON_TRACE --define CYTHON_TRACE_NOGIL
+#python setup.py build_ext --help
+python setup.py build_ext --inplace --debug -j$(nproc) --cython-always --use-system-libuv --cython-gdb --cython-gen-pxi --cython-line-directives --cython-annotate \
+  -D CYTHON_TRACE -D CYTHON_TRACE_NOGIL # --force 
 ```
 # 待考虑事项
 1. UI线程&后端线程精确协作机制(信号量)
