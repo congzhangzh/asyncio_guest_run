@@ -170,8 +170,7 @@ def prepare_backend_thread(tk_root, loop):
                 is_timeout = False
                 while True:
                     #TODO why it's always return 0? 
-                    #timeout = loop.get_backend_timeout()
-                    timeout=0.5
+                    timeout = loop.get_backend_timeout()
                     print(f'timeout {timeout}')
 
                     try:

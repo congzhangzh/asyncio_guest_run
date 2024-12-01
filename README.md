@@ -80,9 +80,15 @@ python setup.py build_ext --inplace --debug -j$(nproc) --cython-always --use-sys
 ```
 
 ## [WIP] Timer 相关参考
+```
+TimerHandle (Python API)
+    └── UVTimer (libuv wrapper)
+        └── uv_timer_t (libuv)
+```
 TimerHandle: uvloop/uvloop/cbhandles.{pxd,pyx}
 UVHandle: uvloop/uvloop/handles/handle.{pxd,pyx}
 UVTimer: uvloop/uvloop/handles/timer.{pxd,pyx}
+Loop: uvloop/uvloop/loop.{pxd,pyx}
 
 # 待考虑事项
 1. UI线程&后端线程精确协作机制(信号量)
