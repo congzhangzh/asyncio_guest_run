@@ -78,6 +78,12 @@ export CYTHON_TRACE_NOGIL=1
 python setup.py build_ext --inplace --debug -j$(nproc) --cython-always --use-system-libuv --cython-gdb --cython-gen-pxi --cython-line-directives --cython-annotate \
   -D CYTHON_TRACE -D CYTHON_TRACE_NOGIL # --force 
 ```
+
+## [WIP] Timer 相关参考
+TimerHandle: uvloop/uvloop/cbhandles.{pxd,pyx}
+UVHandle: uvloop/uvloop/handles/handle.{pxd,pyx}
+UVTimer: uvloop/uvloop/handles/timer.{pxd,pyx}
+
 # 待考虑事项
 1. UI线程&后端线程精确协作机制(信号量)
 2. 主程序安全退出问题
