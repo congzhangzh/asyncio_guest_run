@@ -153,6 +153,7 @@ def prepare_backend_thread(tk_root, loop):
     
     def run_events_on_ui_thread():
         loop.run_once()
+        loop.process_ready()
         if is_debug():
             print("sem released")
         sem.release()
@@ -171,7 +172,8 @@ def prepare_backend_thread(tk_root, loop):
                 while True:
                     #TODO why it's always return 0? 
                     timeout = loop.get_backend_timeout()
-                    print(f'timeout {timeout}')
+                    if is_debug():
+                        print(f'timeout {timeout}')
 
                     try:
                         events = epoll.poll(timeout=timeout)
