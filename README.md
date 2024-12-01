@@ -36,6 +36,47 @@
 
 详见 `requirements.txt`
 
+## [可选] VS Code Remote调试技巧
+依赖MobaXterm等的X Server?
+1. login to server with ssh X forwarding
+2. remote debug with VS Code on local machine
+```bash
+export DISPLAY=:10.0
+```
+
+# 使用uvloop本地版本验证
+issue: https://github.com/MagicStack/uvloop/issues/648
+
+```bash
+    git clone https://github.com/congzhangzh/uvloop
+    pip install -e .
+    # Loop when some pyx changed
+    python setup.py build_ext --inplace
+    # test
+    python -c "from uvloop import Loop ; l=Loop() ; print(l)"
+```
+
+## 编译加速
+```bash
+sudo apt install ccache mold   # for Debian/Ubuntu, included in most Linux distros
+export CC="ccache gcc"         # add to your .profile
+export CXX="ccache g++"        # add to your .profile
+export LDFLAGS="-fuse-ld=mold" # add to your .profile
+```
+
+## cython调试
+```bash
+#refs:
+# https://cython.readthedocs.io/en/latest/src/userguide/source_files_and_compilation.html#compiler-directives
+# https://cython.readthedocs.io/en/latest/src/userguide/debugging.html
+# TBD
+export CFLAGS="-O0 -g3 -fno-omit-frame-pointer -fno-inline"
+export CYTHON_COMPILER_DIRECTIVES="binding=True,language_level=3,linetrace=True,profile=True,embedsignature=True"
+export CYTHON_TRACE=1
+export CYTHON_TRACE_NOGIL=1
+#python setup.py build_ext --inplace --force --define CYTHON_TRACE=1 --define CYTHON_TRACE_NOGIL=1
+python setup.py build_ext --inplace --force --define CYTHON_TRACE --define CYTHON_TRACE_NOGIL
+```
 # 待考虑事项
 1. UI线程&后端线程精确协作机制(信号量)
 2. 主程序安全退出问题
@@ -321,3 +362,121 @@ void NodeBindings::JoinAppCode() {
 https://source.chromium.org/chromium/chromium/src/+/main:base/task/single_thread_task_runner.h
 - the official libuv document
 https://docs.libuv.org/en/v1.x/index.html
+- https://docs.libuv.org/en/v1.x/loop.html#c.uv_run
+```
+int uv_run(uv_loop_t *loop, uv_run_mode mode)
+This function runs the event loop. It will act differently depending on the specified mode:
+
+UV_RUN_DEFAULT: Runs the event loop until there are no more active and referenced handles or requests. Returns non-zero if uv_stop() was called and there are still active handles or requests. Returns zero in all other cases.
+
+UV_RUN_ONCE: Poll for i/o once. Note that this function blocks if there are no pending callbacks. Returns zero when done (no active handles or requests left), or non-zero if more callbacks are expected (meaning you should run the event loop again sometime in the future).
+
+UV_RUN_NOWAIT: Poll for i/o once but don’t block if there are no pending callbacks. Returns zero if done (no active handles or requests left), or non-zero if more callbacks are expected (meaning you should run the event loop again sometime in the future).
+
+uv_run() is not reentrant. It must not be called from a callback.
+```
+- https://github.com/MagicStack/uvloop/blob/7bb12a174884b2ec8b3162a08564e5fb8a5c6b39/uvloop/loop.pyx#L1366
+```python
+    def run_forever(self):
+        """Run the event loop until stop() is called."""
+        self._check_closed()
+        mode = uv.UV_RUN_DEFAULT
+        if self._stopping:
+            # loop.stop() was called right before loop.run_forever().
+            # This is how asyncio loop behaves.
+            mode = uv.UV_RUN_NOWAIT
+        self._set_coroutine_debug(self._debug)
+        old_agen_hooks = sys.get_asyncgen_hooks()
+        sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+                               finalizer=self._asyncgen_finalizer_hook)
+        try:
+            self._run(mode)
+        finally:
+            self._set_coroutine_debug(False)
+            sys.set_asyncgen_hooks(*old_agen_hooks)
+```
+- https://github.com/MagicStack/uvloop/blob/7bb12a174884b2ec8b3162a08564e5fb8a5c6b39/uvloop/includes/uv.pxd#L205
+```cython
+    ctypedef enum uv_run_mode:
+        UV_RUN_DEFAULT = 0,
+        UV_RUN_ONCE,
+        UV_RUN_NOWAIT
+```
+- https://github.com/MagicStack/uvloop/blob/7bb12a174884b2ec8b3162a08564e5fb8a5c6b39/uvloop/loop.pyx#L7 https://github.com/MagicStack/uvloop/blob/7bb12a174884b2ec8b3162a08564e5fb8a5c6b39/uvloop/loop.pyx#L513 https://github.com/MagicStack/uvloop/blob/7bb12a174884b2ec8b3162a08564e5fb8a5c6b39/uvloop/loop.pyx#L500
+```cython
+  def run_forever(self):
+      """Run the event loop until stop() is called."""
+      self._check_closed()
+      mode = uv.UV_RUN_DEFAULT
+      if self._stopping:
+          # loop.stop() was called right before loop.run_forever().
+          # This is how asyncio loop behaves.
+          mode = uv.UV_RUN_NOWAIT
+      self._set_coroutine_debug(self._debug)
+      old_agen_hooks = sys.get_asyncgen_hooks()
+      sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+                              finalizer=self._asyncgen_finalizer_hook)
+      try:
+          self._run(mode)
+      finally:
+          self._set_coroutine_debug(False)
+          sys.set_asyncgen_hooks(*old_agen_hooks)
+  cdef _run(self, uv.uv_run_mode mode):
+      cdef int err
+
+      if self._closed == 1:
+          raise RuntimeError('unable to start the loop; it was closed')
+
+      if self._running == 1:
+          raise RuntimeError('this event loop is already running.')
+
+      if (aio_get_running_loop is not None and
+              aio_get_running_loop() is not None):
+          raise RuntimeError(
+              'Cannot run the event loop while another loop is running')
+
+      # reset _last_error
+      self._last_error = None
+
+      self._thread_id = PyThread_get_thread_ident()
+      self._running = 1
+
+      self.handler_check__exec_writes.start()
+      self.handler_idle.start()
+
+      self._setup_or_resume_signals()
+
+      if aio_set_running_loop is not None:
+          aio_set_running_loop(self)
+      try:
+          self.__run(mode)
+      finally:
+          if aio_set_running_loop is not None:
+              aio_set_running_loop(None)
+
+          self.handler_check__exec_writes.stop()
+          self.handler_idle.stop()
+
+          self._pause_signals()
+
+          self._thread_id = 0
+          self._running = 0
+          self._stopping = 0
+
+      if self._last_error is not None:
+          # The loop was stopped with an error with 'loop._stop(error)' call
+          raise self._last_error
+          
+  cdef __run(self, uv.uv_run_mode mode):
+    # Although every UVHandle holds a reference to the loop,
+    # we want to do everything to ensure that the loop will
+    # never deallocate during the run -- so we do some
+    # manual refs management.
+    Py_INCREF(self)
+    with nogil:
+        err = uv.uv_run(self.uvloop, mode)
+    Py_DECREF(self)
+
+    if err < 0:
+        raise convert_error(err)
+```
