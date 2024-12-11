@@ -12,7 +12,7 @@
     #   or just use run_once()
     #   trigger all timers
 # Gui event loop side
-    # hook_micro_task_process(callback)
+    # dispatcher/run_on_ui(callback)
 # New sementic of asyncio running loop
     # running=true or integration_mode=True
     # asyncio.sleep or related coroutine will not raise error when loop is not running (integration mode=True)
