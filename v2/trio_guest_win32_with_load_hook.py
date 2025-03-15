@@ -13,6 +13,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+# ---begin--- hook helper
+import sys
+from importlib.util import spec_from_file_location, module_from_spec
+import os
+
+class SimpleFinder:
+    def __init__(self, overrides):
+        # overrides 是一个字典，key是模块名，value是替换文件的路径
+        self.overrides = overrides
+    
+    def find_module(self, fullname, path=None):
+        if fullname in self.overrides:
+            return self
+        return None
+    
+    def load_module(self, fullname):
+        if fullname in sys.modules:
+            return sys.modules[fullname]
+            
+        path = self.overrides[fullname]
+        spec = spec_from_file_location(fullname, path)
+        module = module_from_spec(spec)
+        sys.modules[fullname] = module
+        spec.loader.exec_module(module)
+        return module
+
+# 使用方法
+patch_dir = os.path.join(os.path.dirname(__file__), 'patches')  # 你的补丁目录
+overrides = {
+    'asyncio.windows_events': os.path.join(patch_dir, 'windows_events.py'),
+    'asyncio.base_events': os.path.join(patch_dir, 'base_events.py'),
+}
+
+# 安装 finder（需要在任何 asyncio 导入之前）
+sys.meta_path.insert(0, SimpleFinder(overrides))
+# ---end--- hook helper
+
 import collections
 import traceback
 
