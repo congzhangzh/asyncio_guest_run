@@ -51,8 +51,8 @@ overrides = {
 sys.meta_path.insert(0, SimpleFinder(overrides))
 # ---end--- hook helper
 
-import collections
 import traceback
+from queue import Queue
 
 import trio
 import win32api
@@ -66,12 +66,19 @@ import example_tasks
 
 TRIO_MSG = win32con.WM_APP + 3
 
-trio_functions = collections.deque()
+# 使用线程安全的 Queue 代替 deque
+trio_functions = Queue()
 
 
-# @cffi.def_extern()  # if your mainloop is in C/C++
 def do_trio():
-    trio_functions.popleft()()
+    """Process all pending trio tasks in the queue"""
+    while not trio_functions.empty():
+        try:
+            # 获取并执行一个任务
+            func = trio_functions.get()
+            func()
+        except Exception as e:
+            print(f"Error in trio task: {e}")
 
 
 class Win32Host:
@@ -82,25 +89,45 @@ class Win32Host:
         win32gui.PeekMessage(
             win32con.NULL, win32con.WM_USER, win32con.WM_USER, win32con.PM_NOREMOVE
         )
+        self.create_message_window()
+
+    def create_message_window(self):
+        # 注册窗口类
+        wc = win32gui.WNDCLASS()
+        wc.lpfnWndProc = self.trio_wndproc_func
+        wc.lpszClassName = "TrioMessageWindow"
+        win32gui.RegisterClass(wc)
+        
+        # 创建隐藏窗口
+        self.msg_hwnd = win32gui.CreateWindowEx(
+            0, "TrioMessageWindow", "Trio Message Window",
+            0, 0, 0, 0, 0, 0, 0, None, None
+        )
+
+    def trio_wndproc_func(self, hwnd, msg, wparam, lparam):
+        if msg == TRIO_MSG:
+            # 处理所有排队的 trio 任务
+            do_trio()
+            return 0
+        # elif msg == DESTROY_WINDOW_MSG:
+        #     # 在正确的线程中销毁窗口
+        #     win32gui.DestroyWindow(hwnd)
+        #     return 0
+        else:
+            return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
     def run_sync_soon_threadsafe(self, func):
-        """Use use PostThreadMessage to schedule a callback
-        https://docs.microsoft.com/en-us/windows/win32/winmsg/about-messages-and-message-queues
-        """
-        win32api.PostThreadMessage(self.mainthreadid, TRIO_MSG, win32con.NULL, win32con.NULL)
-        trio_functions.append(func)
+        """先添加函数到队列，后发送消息"""
+        trio_functions.put(func)
+        win32api.PostMessage(self.msg_hwnd, TRIO_MSG, 0, 0)
 
     def run_sync_soon_not_threadsafe(self, func):
-        """Use use PostMessage to schedule a callback
-        https://docs.microsoft.com/en-us/windows/win32/winmsg/about-messages-and-message-queues
-        This doesn't provide any real efficiency over threadsafe.
-        """
-        win32api.PostMessage(win32con.NULL, TRIO_MSG, win32con.NULL, win32con.NULL)
-        trio_functions.append(func)
+        """与 threadsafe 相同，保持一致性"""
+        trio_functions.put(func)
+        win32api.PostMessage(self.msg_hwnd, TRIO_MSG, 0, 0)
 
     def done_callback(self, outcome):
-        """non-blocking request to end the main loop
-        """
+        """non-blocking request to end the main loop"""
         print(f"Outcome: {outcome}")
         if isinstance(outcome, Error):
             exc = outcome.error
@@ -110,6 +137,8 @@ class Win32Host:
             exitcode = 0
         self.display.dialog.PostMessage(win32con.WM_CLOSE, 0, 0)
         self.display.dialog.close()
+        # 通过消息请求主线程销毁窗口
+        # win32api.PostMessage(self.msg_hwnd, DESTROY_WINDOW_MSG, 0, 0)
         win32gui.PostQuitMessage(exitcode)
 
     def mainloop(self):
@@ -121,19 +150,12 @@ class Win32Host:
                 error = win32api.GetLastError()
                 raise RuntimeError(error)
 
-            #######################################
-            ### Trio specific part of main loop ###
-            #######################################
-            hwnd, msgid, lparam, wparam, time, point = msg
-            if hwnd == win32con.NULL and msgid == TRIO_MSG:
-                do_trio()
-                continue
-            ###############################
-            ### Trio specific part ends ###
-            ###############################
-
+            # 处理标准窗口消息
             win32gui.TranslateMessage(msg)
             win32gui.DispatchMessage(msg)
+            # 注意：不再在这里处理 trio 任务
+            # 所有 trio 任务由窗口过程中的 do_trio() 处理
+            # do_trio()?
 
 
 def MakeDlgTemplate():
@@ -212,6 +234,7 @@ def main(task):
 
 
 if __name__ == "__main__":
-    print("Known bug: Dragging the window freezes everything.")
-    print("For now only click buttons!")
+    # 移除警告，问题已修复
+    # print("Known bug: Dragging the window freezes everything.")
+    # print("For now only click buttons!")
     main(example_tasks.count)
