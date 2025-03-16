@@ -9,7 +9,7 @@ graph TB
         B --> C[Execute asyncio Tasks]
         C --> D[Release Semaphore]
         
-        M[TRIO_MSG Handler] --> N[Process Task Queue]
+        M[TRIO_MSG/ASYNCIO_MSG Handler] --> N[Process Task Queue]
         N --> O[Run asyncio.run_once]
         O --> P[Release Semaphore]
     end
@@ -22,8 +22,8 @@ graph TB
     end
     
     subgraph "Coordination Mechanisms"
-        I[Semaphore]
-        J[Task Queue]
+        I[Semaphore/Lock]
+        J[Asyncio Ready Task Queue]
         K[Wake Pipe]
     end
     
@@ -78,13 +78,13 @@ sequenceDiagram
     participant U as UI Thread
     
     B->>Q: Add function to queue
-    B->>M: PostMessage(TRIO_MSG)
+    B->>M: PostMessage(TRIO_MSG/ASYNCIO_MSG)
     M->>U: Process message
     U->>Q: Get and execute tasks
     U->>U: Run asyncio.run_once()
 ```
 
-1. **TRIO_MSG**: Custom Win32 message used to trigger asyncio task processing in the UI thread
+1. **TRIO_MSG/ASYNCIO_MSG**: Custom Win32 message used to trigger asyncio task processing in the UI thread
 2. **PostMessage**: Safely sends messages from the backend thread to the UI thread
 3. **run_sync_soon_threadsafe**: Adds functions to the queue and notifies the UI thread to execute them
 
@@ -121,7 +121,7 @@ sequenceDiagram
     B->>B: Call epoll.poll(timeout)
     Note over B: Event occurs
     B->>Q: Add task to queue
-    B->>U: Send TRIO_MSG
+    B->>U: Send TRIO_MSG/ASYNCIO_MSG
     U->>Q: Process all tasks
     U->>U: Run asyncio.run_once()
     U->>S: Release semaphore
