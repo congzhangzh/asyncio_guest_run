@@ -21,26 +21,27 @@ def asyncio_guest_run(async_func, *async_func_args, run_sync_soon_threadsafe, ru
     loop._check_running = patched_check_running.__get__(loop)
     
     # UI线程函数
-    def process_events_on_ui():
+    def process_events_on_ui(events):
         if not loop.is_closed():
             # 处理事件和回调
-            loop.process_events(loop._last_events)
+            loop.process_events(events)
             loop.process_ready()
             # 释放信号量让后端线程继续
             sem.release()
     
     # 后端线程函数
     def backend_thread_loop():
+        from functools import partial
         try:
             while not loop.is_closed():
                 # 等待UI线程处理完成
                 sem.acquire()
                 
                 # 轮询I/O事件
-                loop._last_events = loop.poll_events()
-                
+                #loop._last_events = loop.poll_events()
+                events = loop.poll_events()
                 # 请求UI线程处理事件
-                run_sync_soon_threadsafe(process_events_on_ui)
+                run_sync_soon_threadsafe(partial(process_events_on_ui, events))
         except Exception as e:
             print(f"后端线程错误: {e}")
             run_sync_soon_threadsafe(lambda: done_callback(Exception(str(e))))
@@ -63,7 +64,8 @@ def asyncio_guest_run(async_func, *async_func_args, run_sync_soon_threadsafe, ru
     task.add_done_callback(on_task_done)
     
     # 初始运行
-    process_events_on_ui()
+    #process_events_on_ui()
+    sem.release()
     
     # 启动后端线程
     threading.Thread(target=backend_thread_loop, daemon=True).start()

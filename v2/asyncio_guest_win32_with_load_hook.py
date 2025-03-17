@@ -213,13 +213,11 @@ class Win32Display:
     def set_cancel(self, fn):
         self.dialog.cancelfn = fn
 
-
-
 def main(task):
     display = Win32Display()
     host = Win32Host(display)
     #trio.lowlevel.start_guest_run
-    asyncio_guest_run(
+    asyncio_guest_run.asyncio_guest_run(
         task,
         display,
         run_sync_soon_threadsafe=host.run_sync_soon_threadsafe,
@@ -230,6 +228,8 @@ def main(task):
 
 
 if __name__ == "__main__":
+    import tracemalloc
+    tracemalloc.start()
     # 移除警告，问题已修复
     # print("Known bug: Dragging the window freezes everything.")
     # print("For now only click buttons!")
