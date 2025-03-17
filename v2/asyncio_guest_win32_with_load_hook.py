@@ -24,37 +24,33 @@ class SimpleFinder:
         # overrides 是一个字典，key是模块名，value是替换文件的路径
         self.overrides = overrides
     
-    def find_module(self, fullname, path=None):
+    # 新的导入协议方法
+    def find_spec(self, fullname, path, target=None):
         if fullname in self.overrides:
-            return self
+            print(f"[SimpleFinder] find_spec: {fullname}")
+            path = self.overrides[fullname]
+            spec = spec_from_file_location(fullname, path)
+            return spec
         return None
-    
-    def load_module(self, fullname):
-        if fullname in sys.modules:
-            return sys.modules[fullname]
-            
-        path = self.overrides[fullname]
-        spec = spec_from_file_location(fullname, path)
-        module = module_from_spec(spec)
-        sys.modules[fullname] = module
-        spec.loader.exec_module(module)
-        return module
 
 # 使用方法
 patch_dir = os.path.join(os.path.dirname(__file__), 'patches')  # 你的补丁目录
 overrides = {
-    'asyncio.windows_events': os.path.join(patch_dir, 'windows_events.py'),
-    'asyncio.base_events': os.path.join(patch_dir, 'base_events.py'),
+    #'asyncio.windows_events': os.path.join(patch_dir, 'windows_events.py'),
+    'asyncio.base_events': os.path.join(patch_dir, 'base_events_patched.py'),
+    'amodule': os.path.join(patch_dir, 'amodule_patched.py'),
 }
 
 # 安装 finder（需要在任何 asyncio 导入之前）
 sys.meta_path.insert(0, SimpleFinder(overrides))
 # ---end--- hook helper
 
+import amodule
+amodule.say_hello()
+
 import traceback
 from queue import Queue
 
-import trio
 import win32api
 import win32con
 import win32gui
@@ -71,7 +67,6 @@ TRIO_MSG = win32con.WM_APP + 3
 
 # 使用线程安全的 Queue 代替 deque
 trio_functions = Queue()
-
 
 def do_trio():
     """Process all pending trio tasks in the queue"""
