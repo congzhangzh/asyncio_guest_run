@@ -131,6 +131,7 @@ class Win32Host:
     def done_callback(self, outcome):
         """non-blocking request to end the main loop"""
         print(f"Outcome: {outcome}")
+        print(f"大功告成: {outcome}")
         if isinstance(outcome, Error):
             exc = outcome.error
             traceback.print_exception(type(exc), exc, exc.__traceback__)
@@ -231,6 +232,10 @@ def main(task):
     )
     host.mainloop()
 
+async def async_main(display):
+    await example_tasks_asyncio.count(display)
+    await example_tasks_asyncio.get(display)
+    #await example_tasks_asyncio.check_latency(display)
 
 if __name__ == "__main__":
     import tracemalloc
@@ -238,4 +243,4 @@ if __name__ == "__main__":
     # 移除警告，问题已修复
     # print("Known bug: Dragging the window freezes everything.")
     # print("For now only click buttons!")
-    main(example_tasks_asyncio.count)
+    main(async_main)

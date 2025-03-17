@@ -83,7 +83,7 @@ async def get(display):
     return 1
 
 
-async def count(display, period=3, max=100):
+async def count(display, period=0.5, max=20):
     try:
         display.set_title(f"Counting every {period} seconds...")
         display.set_max(max)
@@ -94,7 +94,7 @@ async def count(display, period=3, max=100):
         try:
             for i in range(max):
                 await asyncio.sleep(period)
-                display.set_value(i)
+                display.set_value(i+1)
                 #print(f'count: i: {i}')
         except asyncio.CancelledError:
             print("Counting was cancelled")
