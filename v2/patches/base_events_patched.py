@@ -2050,3 +2050,41 @@ class BaseEventLoop(events.AbstractEventLoop):
 
         if self.is_running():
             self.call_soon_threadsafe(self._set_coroutine_origin_tracking, enabled)
+
+    def poll_events(self):
+        """轮询I/O事件但不处理它们"""
+        # 简化版，只轮询事件
+        try:
+            timeout = 0.1  # 使用固定超时值简化实现
+            if self._ready or self._stopping:
+                timeout = 0
+            return self._selector.select(timeout)
+        except:
+            return []
+
+    def process_events(self, events):
+        """处理轮询到的I/O事件"""
+        if events:
+            self._process_events(events)
+
+    def process_ready(self):
+        """处理到期的定时器和执行就绪的回调"""
+        # 处理到期的定时器
+        end_time = self.time() + self._clock_resolution
+        while self._scheduled:
+            handle = self._scheduled[0]
+            if handle._when >= end_time:
+                break
+            handle = heapq.heappop(self._scheduled)
+            handle._scheduled = False
+            if handle._cancelled:
+                continue
+            self._ready.append(handle)
+        
+        # 执行就绪的回调
+        ntodo = len(self._ready)
+        for i in range(ntodo):
+            handle = self._ready.popleft()
+            if handle._cancelled:
+                continue
+            handle._run()
