@@ -244,7 +244,7 @@ class _SendfileFallbackProtocol(protocols.Protocol):
         self._proto.connection_lost(exc)
 
     def pause_writing(self):
-        if self._write_ready_fut is not None:
+        if self._write_ready_fut is None:
             return
         self._write_ready_fut = self._transport._loop.create_future()
 
@@ -2053,11 +2053,20 @@ class BaseEventLoop(events.AbstractEventLoop):
 
     def poll_events(self):
         """轮询I/O事件但不处理它们"""
-        # 简化版，只轮询事件
-        try:
-            timeout = 0.1  # 使用固定超时值简化实现
-            if self._ready or self._stopping:
+        # 计算超时时间 - 保留动态超时计算
+        timeout = None
+        if self._ready or self._stopping:
+            timeout = 0
+        elif self._scheduled:
+            # 计算所需的超时时间
+            timeout = self._scheduled[0]._when - self.time()
+            if timeout > MAXIMUM_SELECT_TIMEOUT:
+                timeout = MAXIMUM_SELECT_TIMEOUT
+            elif timeout < 0:
                 timeout = 0
+
+        # 执行实际的轮询操作
+        try:
             return self._selector.select(timeout)
         except:
             return []
@@ -2069,7 +2078,7 @@ class BaseEventLoop(events.AbstractEventLoop):
 
     def process_ready(self):
         """处理到期的定时器和执行就绪的回调"""
-        # 处理到期的定时器
+        # 处理已过期的计时器
         end_time = self.time() + self._clock_resolution
         while self._scheduled:
             handle = self._scheduled[0]
@@ -2077,14 +2086,12 @@ class BaseEventLoop(events.AbstractEventLoop):
                 break
             handle = heapq.heappop(self._scheduled)
             handle._scheduled = False
-            if handle._cancelled:
-                continue
-            self._ready.append(handle)
+            if not handle._cancelled:
+                self._ready.append(handle)
         
         # 执行就绪的回调
         ntodo = len(self._ready)
         for i in range(ntodo):
             handle = self._ready.popleft()
-            if handle._cancelled:
-                continue
-            handle._run()
+            if not handle._cancelled:
+                handle._run()
