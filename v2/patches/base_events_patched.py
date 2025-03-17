@@ -244,7 +244,7 @@ class _SendfileFallbackProtocol(protocols.Protocol):
         self._proto.connection_lost(exc)
 
     def pause_writing(self):
-        if self._write_ready_fut is None:
+        if self._write_ready_fut is not None:
             return
         self._write_ready_fut = self._transport._loop.create_future()
 
