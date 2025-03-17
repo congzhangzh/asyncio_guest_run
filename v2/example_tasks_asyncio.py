@@ -4,7 +4,7 @@ import time
 import warnings
 import asyncio
 from functools import partial
-
+import traceback
 import httpx
 import httpcore._async.http11
 
@@ -25,7 +25,8 @@ class AsyncioDisplay:
         
     def set_value(self, value):
         self.value = value
-        
+        print(f'set_value: value: {value}')
+
     def set_max(self, max):
         self.max = max
         
@@ -63,6 +64,7 @@ async def get(display):
                             downloaded += len(chunk)
                             if time.monotonic() - last_screen_update > 1 / fps:
                                 display.set_value(downloaded)
+                                print(f'get: downloaded: {downloaded}')
                                 last_screen_update = time.monotonic()
                     break
                 except httpcore._exceptions.ReadTimeout:
@@ -81,22 +83,27 @@ async def get(display):
     return 1
 
 
-async def count(display, period=.1, max=60):
-    display.set_title(f"Counting every {period} seconds...")
-    display.set_max(60)
-    
-    task = asyncio.current_task()
-    display.set_cancel(task.cancel)
-    
+async def count(display, period=3, max=100):
     try:
-        for i in range(max):
-            await asyncio.sleep(period)
-            display.set_value(i)
-    except asyncio.CancelledError:
-        print("Counting was cancelled")
+        display.set_title(f"Counting every {period} seconds...")
+        display.set_max(max)
+        
+        task = asyncio.current_task()
+        display.set_cancel(task.cancel)
+        
+        try:
+            for i in range(max):
+                await asyncio.sleep(period)
+                display.set_value(i)
+                #print(f'count: i: {i}')
+        except asyncio.CancelledError:
+            print("Counting was cancelled")
+            raise
+        return 1
+    except Exception as e:
+        print(f'{__file__}:{count.__name__} : e: {e}')
+        print(traceback.format_exc())
         raise
-    return 1
-
 
 async def check_latency(display=None, period=0.1, duration=math.inf):
     task = None
@@ -125,8 +132,9 @@ async def main():
     display = AsyncioDisplay()
     
     # 模拟原始代码的运行方式，运行latency检查2秒
-    await check_latency(display=display, duration=2)
-
+    # await check_latency(display=display, duration=2)
+    # await get(display)
+    await count(display)
 
 if __name__ == '__main__':
     asyncio.run(main())

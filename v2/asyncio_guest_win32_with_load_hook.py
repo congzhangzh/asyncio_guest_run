@@ -19,6 +19,9 @@ import sys
 from importlib.util import spec_from_file_location, module_from_spec
 import os
 
+#TODO this does not work?
+os.environ['PYTHONASYNCIODEBUG'] = '1'
+
 class SimpleFinder:
     def __init__(self, overrides):
         # overrides 是一个字典，key是模块名，value是替换文件的路径
@@ -76,7 +79,9 @@ def do_trio():
             func = trio_functions.get()
             func()
         except Exception as e:
-            print(f"Error in trio task: {e}")
+            print(rf"{__file__}:{do_trio.__name__} e: {e}")
+            print(traceback.format_exc())
+            raise e
 
 class Win32Host:
     def __init__(self, display):

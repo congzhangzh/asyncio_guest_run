@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: asyncio_guest_win32_with_load_hook",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "v2/asyncio_guest_win32_with_load_hook.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "subProcess": true
+        },
+        {
             "name": "Python Debugger: Current File - Local",
             "type": "debugpy",
             "request": "launch",
