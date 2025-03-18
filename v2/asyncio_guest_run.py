@@ -4,6 +4,12 @@ import threading
 def is_debug():
     return False  # 简化调试输出
 
+def schedule_on_asyncio(coro):
+    def schedule_coro():
+        loop = asyncio.get_event_loop()
+        asyncio.run_coroutine_threadsafe(coro, loop)
+    return schedule_coro
+
 def asyncio_guest_run(async_func, *async_func_args, run_sync_soon_threadsafe, run_sync_soon_not_threadsafe, done_callback):
     """最简化的asyncio guest运行函数"""
     # 创建信号量用于线程协调
